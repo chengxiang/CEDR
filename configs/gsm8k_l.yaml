@@ -1,0 +1,125 @@
+task: gsm8k
+teacher:
+  model_id: Qwen/Qwen3-4B-Instruct-2507
+  revision: cdbee75f17c01a7cc42f958dc650907174af0554
+  chunk_rows: 32
+representation:
+  layers:
+  - 16
+  - 24
+  - 32
+  dimensions:
+  - 256
+  - 256
+  - 512
+  eigenvalue_floor: 1.0e-05
+  projector_epochs: 10
+  projector_lr: 0.001
+  projector_ema: 0.999
+model:
+  text_encoder_dim: 1024
+  max_length: 1024
+  hidden_size: 1280
+  depth: 32
+  num_heads: 16
+  bottleneck_dim: 512
+  decoder_dim: 1024
+  num_time_tokens: 4
+  num_self_cond_cfg_tokens: 4
+  num_model_mode_tokens: 4
+  vocab_size: 151936
+prompt:
+  vocab_size: 151936
+  max_length: 1024
+  external_embedding_dim: 2560
+  bottleneck_dim: 512
+  hidden_size: 1280
+  depth: 6
+  num_heads: 16
+  output_dim: 1024
+training:
+  seed: 42
+  effective_batch: 512
+  micro_batch: 32
+  lr: 0.002
+  clip_norm: 1.0
+  ema_decays:
+  - 0.99
+  - 0.999
+  - 0.9999
+  bf16: true
+  compile: true
+  flow_mean: -1.5
+  flow_std: 0.8
+  noise_scale: 2.0
+  t_eps: 0.05
+  decoder_prob: 0.2
+  decoder_mean: 0.8
+  decoder_std: 0.8
+  decoder_noise_scale: 1.0
+  self_cond_prob: 0.5
+  sccfg_min: 0.5
+  sccfg_max: 5.0
+  ce_chunk_tokens: 512
+  save_every: 500
+  first_epoch_order: physical
+  later_epoch_order: global
+  prompt_mse_ratio: 0.0
+  mse_balance_decay: 0.99
+stages:
+  flow_epochs: 12
+  prompt_epochs: 30
+  joint_epochs: 9
+  joint_prompt_selector: '.999'
+  nft_updates: 500
+data:
+  max_tokens: 1024
+  max_prompt_tokens: 257
+  format: native_boxed_math
+  no_truncation: true
+inference:
+  steps: 32
+  clock_powers:
+  - 2.5
+  - 2.0
+  - 1.5
+  sccfg: 2.0
+  cfg: 1.0
+  grid_mean: -1.5
+  grid_std: 0.8
+  arithmetic: bf16
+  prompt_arithmetic: fp32
+  prompt_padding_multiple: 1
+  matmul_precision: high
+  noise_generator: cpu
+  elf_selector: '.9999'
+  prompt_selector: '.9999'
+nft:
+  lr: 0.0001
+  prompt_groups: 24
+  generated_per_group: 15
+  draws_per_endpoint: 8
+  rollout_steps: 32
+  rollout_sccfg: 2.0
+  rollout_clock_powers:
+  - 1.0
+  - 1.0
+  - 1.0
+  beta: 1.0
+  reference_weight: 0.1
+  adv_clip_max: 5.0
+  adv_epsilon: 0.0001
+  old_transition_update: 400
+  old_post_transition_decay: 0.4
+  elf_init_selector: '.9999'
+  prompt_init_selector: '.9999'
+  ema_decays:
+  - 0.9
+  - 0.99
+  - 0.999
+  - 0.9999
+  elf_eval_selector: '.99'
+  prompt_eval_selector: '.99'
+  gold_reward: 1.0
+  correct_reward: 0.75
+  incorrect_reward: 0.0
