@@ -47,6 +47,8 @@ def read_package(directory, verify=True):
         manifest["embedding"],
         *manifest["weights"].values(),
     }
+    if manifest.get("representation"):
+        required.add(manifest["representation"])
     if not required.issubset(manifest["files"]):
         raise ValueError("package is missing required file hashes")
     if set(manifest["weights"]) != {"elf", "prompt"}:

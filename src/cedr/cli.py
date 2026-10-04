@@ -28,7 +28,7 @@ def parser():
         q.add_argument("--output", required=True)
 
     q = sub.add_parser(
-        "download", help="Download and verify one model and shared inference assets"
+        "download", help="Download a model, matched representation, and shared assets"
     )
     q.add_argument("--model", required=True)
     q.add_argument(
@@ -104,6 +104,7 @@ def parser():
     q.add_argument("--representation")
     q.add_argument("--embedding")
     q.add_argument("--init")
+    q.add_argument("--init-weights", help="Joint fine-tuning from a downloaded model with fresh optimizers")
     q.add_argument("--prompt-init")
     q.add_argument("--resume")
     q.add_argument("--elf-selector")

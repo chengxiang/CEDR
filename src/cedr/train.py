@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 import json
+from copy import copy
 import math
 from pathlib import Path
 import signal
@@ -51,23 +52,35 @@ def feature_provider(args, cfg, dataset, device):
 
 def run(args, cfg):
     if args.stage == "nft":
+        if getattr(args, "init_weights", None):
+            raise ValueError("--init-weights is supported for joint training")
         from .nft import run as nft_run
 
         return nft_run(args, cfg)
+    from .finetuning import resolve, validate_data
+
+    args = copy(args)
+    cfg, initial_weights, resume_bundle, weights_identity = resolve(args, cfg)
     rank, world, device = distributed_setup()
     start = time.monotonic()
     c = cfg["training"]
     stage = args.stage
     dataset = Rows(args.data, prompts_only=stage == "prompt")
+    if weights_identity:
+        validate_data(dataset, cfg, args.tokenizer)
     provider = feature_provider(args, cfg, dataset, device)
     embedding = load_embedding(args.embedding) if stage != "flow" else None
     with preserve_rng():
         seed_all(c["seed"])
         elf, prompt = build_models(cfg, device, embedding, stage)
     models = {k: m for k, m in dict(elf=elf, prompt=prompt).items() if m is not None}
+    if initial_weights is not None:
+        for name, model in models.items():
+            model.load_state_dict(initial_weights["models"][name], strict=True)
+        del initial_weights
     optimizers = make_optimizers(elf, prompt, c["lr"])
     emas = {k: EMA(m, c["ema_decays"]) for k, m in models.items()}
-    if stage == "joint" and not args.resume:
+    if stage == "joint" and not args.resume and not weights_identity:
         if not args.init or not args.prompt_init:
             raise ValueError(
                 "joint needs --init flow checkpoint and --prompt-init standalone checkpoint"
@@ -152,12 +165,14 @@ def run(args, cfg):
             else None
         ),
     )
+    if weights_identity:
+        contract["weights_initialization"] = weights_identity
     out = Path(args.output)
     out.mkdir(parents=True, exist_ok=True)
     seed_all(c["seed"] + rank)
     update = 0
     if args.resume:
-        parent = load_tensor_file(args.resume)
+        parent = resume_bundle
         # Parent artifact paths need not be supplied again on an ordinary resume.
         contract["init"] = parent["contract"]["init"]
         contract["prompt_init"] = parent["contract"]["prompt_init"]
@@ -171,6 +186,7 @@ def run(args, cfg):
             cursor=cursor,
             balance=balance,
         )
+        del parent, resume_bundle
     elif (out / "latest.pt").exists():
         raise FileExistsError(
             "output has a checkpoint; use --resume or a new output directory"
@@ -189,6 +205,7 @@ def run(args, cfg):
             total_updates=total_updates,
             stage_epochs=epochs,
             topology=dict(world=world, micro=micro, accumulation=accumulation),
+            **({"finetuning_assets": {k: getattr(args, k) for k in ("embedding", "representation", "tokenizer")}} if weights_identity else {}),
         ),
     )
     if update == 0:

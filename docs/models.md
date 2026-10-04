@@ -21,8 +21,12 @@ Learned weights use FP32 safetensors. Packages share the BF16 frozen token embed
 cedr download --model gsm8k-b-pre-nft --output artifacts/gsm8k-b-pre
 ```
 
-Only the requested model and shared inference assets are downloaded. The downloader resolves an immutable Hub commit and verifies file sizes and hashes. `download.json` records the resolved revision; pass it as `--revision COMMIT` to reproduce the download.
+Only the requested model, matched representation, and shared inference assets are downloaded. The downloader resolves an immutable Hub commit and verifies file sizes and hashes. `download.json` records the resolved revision; pass it as `--revision COMMIT` to reproduce the download.
 
-The validated release revision is `ce4e9cf93f173fe5e9a5c32e359a23ee27b88115`. Add `--revision ce4e9cf93f173fe5e9a5c32e359a23ee27b88115` to pin these packages.
+The validated release revision is `cad7c151e8b1cf4a4a09cc22b0bbd1372460374c`. Add `--revision cad7c151e8b1cf4a4a09cc22b0bbd1372460374c` to pin these packages.
 
 The model packages are licensed under Apache 2.0 and retain Qwen attribution. The GitHub code is MIT licensed. See [evaluation.md](evaluation.md) for benchmark commands and numerical settings, and [model_validation.md](model_validation.md) for seed-42 release checks.
+
+## Matched representations
+
+Each current download includes `representation.pt`, shared by the pre-NFT and post-NFT model of its family. It contains the layer means and FP32 effective whitened encoders for layers 16/24/32 (256/256/512 dimensions), plus reconstruction matrices. Generation does not use this artifact. Joint fine-tuning and feature-cache construction use it to preserve the model's latent coordinates; no additional covariance fitting is needed. See [fine-tuning](finetuning.md).

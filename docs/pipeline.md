@@ -101,6 +101,8 @@ features=(--features live --teacher "$teacher" \
 
 ## 4. Supervised stages
 
+To start from a released model pair, use `train joint --init-weights MODEL_DIR` with fresh optimizers as described in the [fine-tuning guide](finetuning.md). The stage-transition commands below preserve optimizer state when training the full pipeline.
+
 ```bash
 torchrun --standalone --nproc-per-node=2 -m cedr train flow \
   --config "$recipe" --data "$artifacts/data" "${features[@]}" \
@@ -159,4 +161,4 @@ Use the same command and output directory plus `--resume /path/to/latest.pt`. Yo
 cedr export --input "$artifacts/joint/final.pt" --output "$artifacts/joint-weights.pt"
 ```
 
-This retains raw weights and all independently keyed EMAs while removing optimizers. To export one selected pair, pass both `--elf-selector` and `--prompt-selector`, then use `raw/raw` when loading the resulting selected-weight export. The examples use weights produced by your own training runs. No trained CEDR weights are distributed with this repository.
+This retains raw weights and all independently keyed EMAs while removing optimizers. To export one selected pair, pass both `--elf-selector` and `--prompt-selector`, then use `raw/raw` when loading the resulting selected-weight export. The examples use weights produced by your own training runs. Released model pairs and matched representations are available on [Hugging Face](https://huggingface.co/xc91/CEDR).

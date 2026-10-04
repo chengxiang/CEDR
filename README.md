@@ -27,7 +27,7 @@ Code execution rewards require Linux **bubblewrap** (`bwrap`) with user namespac
 
 ## Released models
 
-[Six inference packages](https://huggingface.co/xc91/CEDR) cover GSM8K-B, MATH-L, and OCI-L, before and after NFT. Downloaded packages contain the matched denoiser, vocabulary decoder, prompt encoder, frozen embedding table, and tokenizer.
+[Six inference packages](https://huggingface.co/xc91/CEDR) cover GSM8K-B, MATH-L, and OCI-L, before and after NFT. Downloaded packages contain the matched denoiser, vocabulary decoder, prompt encoder, frozen embedding table, tokenizer, and matched `representation.pt` projectors.
 
 ```bash
 cedr download --model gsm8k-b-pre-nft --output artifacts/gsm8k-b-pre
@@ -43,6 +43,10 @@ cedr score --config artifacts/gsm8k-b-pre/config.json --data artifacts/gsm8k-tes
 See [model selectors and presets](docs/models.md) and [evaluation commands](docs/evaluation.md). Model artifacts are Apache 2.0; this code is MIT.
 
 Coding scoring defaults to standard EvalPlus extraction. Use `cedr score --function-name-repair` for the separately labeled single-function alias comparison; see the evaluation guide for its rule and output records.
+
+## Fine-tune a released model
+
+Joint fine-tuning loads the selected ELF/prompt pair with `--init-weights`, initializes fresh optimizers and independent EMAs, and uses the downloaded projectors to encode new training data. Both pre-NFT and post-NFT packages are supported. Supply the pinned full Qwen teacher for live features or build a matching cache. See the [fine-tuning guide](docs/finetuning.md) for complete preparation, training, and resume commands.
 
 ## Configurations
 

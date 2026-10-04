@@ -13,19 +13,23 @@ from .data import collate
 class Representation:
     def __init__(self, path, device="cpu"):
         self.identity = sha256(path)
-        self.payload = load_tensor_file(path)
+        self.payload = torch.load(path, map_location="cpu", weights_only=True)
         if self.payload.get("format") != "cedr-representation-v1":
             raise ValueError("expected representation.pt from cedr projectors")
         self.layers = self.payload["layers"]
         self.dimensions = self.payload["dimensions"]
+        if not self.layers or len(self.layers) != len(self.dimensions) or len(self.layers) != len(self.payload["blocks"]):
+            raise ValueError("representation layer/block count mismatch")
         self.device = torch.device(device)
         self.blocks = [
             (b["mean"].to(device).float(), b["encoder"].to(device).float())
             for b in self.payload["blocks"]
         ]
-        for (_, e), d in zip(self.blocks, self.dimensions):
-            if e.shape[1] != d:
+        for (m, e), d in zip(self.blocks, self.dimensions):
+            if m.ndim != 1 or e.ndim != 2 or e.shape != (m.numel(), d):
                 raise ValueError("representation shape mismatch")
+            if not torch.isfinite(m).all() or not torch.isfinite(e).all():
+                raise ValueError("nonfinite representation")
 
     def project(self, hidden):
         with torch.autocast(self.device.type, enabled=False):

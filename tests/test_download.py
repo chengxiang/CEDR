@@ -7,13 +7,20 @@ from cedr.packages import download
 from test_packages import package
 
 
-def test_selective_revision_pinned_download(tmp_path, cfg, monkeypatch):
+@pytest.mark.parametrize("with_representation", [False, True])
+def test_selective_revision_pinned_download(tmp_path, cfg, monkeypatch, with_representation):
     import huggingface_hub
 
     source = package(tmp_path, cfg)
     model = "gsm8k-b-pre-nft"
     revision = "a" * 40
     manifest = json.loads((source / "manifest.json").read_text())
+    if with_representation:
+        representation = source / "representation.pt"
+        representation.write_bytes(b"representation-download-fixture")
+        manifest["representation"] = "representation.pt"
+        manifest["files"]["representation.pt"] = dict(bytes=representation.stat().st_size, sha256=sha256(representation))
+        atomic_json(manifest, source / "manifest.json")
     files = {
         **manifest["files"],
         "manifest.json": dict(
@@ -61,5 +68,7 @@ def test_selective_revision_pinned_download(tmp_path, cfg, monkeypatch):
     assert json.loads((result / "download.json").read_text())["revision"] == revision
     assert not any("post-nft" in path for path in calls)
     assert sha256(result / "model.safetensors") == sha256(source / "model.safetensors")
+    if with_representation:
+        assert sha256(result / "representation.pt") == sha256(source / "representation.pt")
     with pytest.raises(ValueError, match="unknown model"):
         download("other", tmp_path / "bad")

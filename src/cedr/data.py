@@ -77,6 +77,11 @@ def encode_row(row, tokenizer, cfg, *, inference=False):
     )
 
 
+def tokenizer_fingerprint(tokenizer):
+    """Bind prepared rows to vocabulary, special tokens, and the chat template."""
+    return digest(dict(vocab=tokenizer.get_vocab(), special_tokens=tokenizer.special_tokens_map, chat_template=tokenizer.chat_template))
+
+
 def prepare(input_path, output, tokenizer, cfg, inference=False):
     out = Path(output)
     out.mkdir(parents=True, exist_ok=True)
@@ -125,6 +130,8 @@ def prepare(input_path, output, tokenizer, cfg, inference=False):
             n: sha256(out / n) for n in ("rows.jsonl", "offsets.npy", "prompts.npy")
         },
     )
+    if hasattr(tokenizer, "get_vocab"):
+        manifest["tokenizer_sha256"] = tokenizer_fingerprint(tokenizer)
     atomic_json(manifest, out / "manifest.json")
     return manifest
 
