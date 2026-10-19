@@ -32,6 +32,20 @@ from .objectives import mixed_loss, restore
 from .state import EMA, save_training, restore_training, selected_state
 
 
+def stage_update_count(epochs, micro_per_epoch, accumulation, *, policy="strict", preceding_epochs=0):
+    """Round cumulative epoch milestones without rounding each pass separately."""
+    if policy == "strict":
+        total = epochs * micro_per_epoch
+        if total % accumulation:
+            raise ValueError("stage endpoint falls inside accumulation")
+        return total // accumulation
+    if policy != "ceil_update":
+        raise ValueError("epoch_boundary must be strict or ceil_update")
+    def endpoint(epoch):
+        return (epoch * micro_per_epoch + accumulation - 1) // accumulation
+    return endpoint(preceding_epochs + epochs) - endpoint(preceding_epochs)
+
+
 def feature_provider(args, cfg, dataset, device):
     if args.features == "cache":
         if not args.cache:
@@ -78,7 +92,10 @@ def run(args, cfg):
         for name, model in models.items():
             model.load_state_dict(initial_weights["models"][name], strict=True)
         del initial_weights
-    optimizers = make_optimizers(elf, prompt, c["lr"])
+    optimizers = make_optimizers(
+        elf, prompt, c["lr"],
+        prompt_lr=c.get("joint_prompt_lr", c["lr"]) if stage == "joint" else c["lr"],
+    )
     emas = {k: EMA(m, c["ema_decays"]) for k, m in models.items()}
     if stage == "joint" and not args.resume and not weights_identity:
         if not args.init or not args.prompt_init:
@@ -122,6 +139,9 @@ def run(args, cfg):
     if c["effective_batch"] % global_micro:
         raise ValueError("effective batch must divide micro_batch × world size")
     accumulation = c["effective_batch"] // global_micro
+    tail = c.get("epoch_tail", "microbatch")
+    if tail not in ("microbatch", "update"):
+        raise ValueError("epoch_tail must be microbatch or update")
     cursor = Cursor(
         len(dataset),
         micro,
@@ -131,23 +151,23 @@ def run(args, cfg):
         first=c["first_epoch_order"],
         later=c["later_epoch_order"],
         retain_tail=stage == "prompt",
+        drop_multiple=c["effective_batch"] if stage != "prompt" and tail == "update" else None,
     )
     epochs = cfg["stages"][stage + "_epochs"]
     micro_per_epoch = (
         math.ceil(len(dataset) / global_micro)
         if stage == "prompt"
-        else len(dataset) // global_micro
+        else cursor.usable // global_micro
     )
     if stage == "prompt" and accumulation != 1:
         raise ValueError(
             "prompt imitation uses a true partial tail; select micro_batch=effective_batch/world (accumulation=1)"
         )
-    total_micro = epochs * micro_per_epoch
-    if total_micro % accumulation:
-        raise ValueError(
-            "stage endpoint falls inside accumulation; choose matched batch geometry or an integer number of accumulation cycles"
-        )
-    total_updates = total_micro // accumulation
+    total_updates = stage_update_count(
+        epochs, micro_per_epoch, accumulation,
+        policy=c.get("epoch_boundary", "strict"),
+        preceding_epochs=cfg["stages"]["flow_epochs"] if stage == "joint" and not weights_identity else 0,
+    )
     contract = dict(
         stage=stage,
         config=digest(cfg),

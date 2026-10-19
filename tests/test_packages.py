@@ -34,7 +34,7 @@ def package(tmp_path, cfg):
         )
     }
     manifest = dict(
-        format="cedr-inference-v1",
+        format="cedr-inference-v2",
         config="config.json",
         files=files,
         weights=dict(elf="model.safetensors", prompt="prompt.safetensors"),
@@ -46,8 +46,12 @@ def package(tmp_path, cfg):
     return root
 
 
-def test_package_integrity_and_paths(tmp_path, cfg):
+@pytest.mark.parametrize("format_version", [1, 2])
+def test_package_integrity_and_paths(tmp_path, cfg, format_version):
     root = package(tmp_path, cfg)
+    manifest = json.loads((root / "manifest.json").read_text())
+    manifest["format"] = f"cedr-inference-v{format_version}"
+    atomic_json(manifest, root / "manifest.json")
     ck, manifest = load_package(root)
     assert ck["selection"] == dict(elf="0.9999", prompt="0.999")
     assert len(ck["models"]["elf"]) > 0
@@ -60,7 +64,9 @@ def test_package_integrity_and_paths(tmp_path, cfg):
         read_package(root)
 
 
-def test_package_generation_exact_resume(tmp_path, cfg, rows, monkeypatch):
+@pytest.mark.parametrize("sampler", ["ode", "edm", "dmd2"])
+def test_package_generation_exact_resume(tmp_path, cfg, rows, monkeypatch, sampler):
+    cfg["inference"]["sampler"] = sampler
     from cedr import generation
     import transformers
 

@@ -66,19 +66,20 @@ training:
   later_epoch_order: global
   prompt_mse_ratio: 0.0
   mse_balance_decay: 0.99
+  epoch_boundary: ceil_update
 stages:
   flow_epochs: 12
   prompt_epochs: 30
   joint_epochs: 9
   joint_prompt_selector: '.999'
-  nft_updates: 500
+  nft_updates: 600
 data:
   max_tokens: 1024
   max_prompt_tokens: 257
   format: native_boxed_math
   no_truncation: true
 inference:
-  steps: 32
+  steps: 64
   clock_powers:
   - 2.5
   - 2.0
@@ -94,6 +95,9 @@ inference:
   noise_generator: cpu
   elf_selector: '.9999'
   prompt_selector: '.9999'
+  sampler: dmd2
+  renoise_eta: 1.0
+  edm_churn: 0.7
 nft:
   lr: 0.0001
   prompt_groups: 24

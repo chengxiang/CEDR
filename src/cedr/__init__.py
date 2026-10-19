@@ -1,1 +1,1 @@
-"""CEDR: Continuous Embedding Diffusion for Reasoning."""
+"""CEDR: Continuous Embedding Diffusion Reasoner."""

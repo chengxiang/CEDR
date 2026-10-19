@@ -61,7 +61,7 @@ Generation, base/plus tests, and execution limits stay the same. `scoring.json` 
 
 Presets are listed in [models.md](models.md). Override `--seed`, `--steps`, `--sccfg`, `--powers`, or `--batch-size` explicitly. Use a distinct output directory for each seed/setting. Initial Gaussian noise uses a seeded CPU generator; the deterministic logit-normal quantile grid uses mean −1.5 and standard deviation .8. Local clock derivatives are included in Euler updates. SCCFG is a learned guidance input, so SCCFG=1 still uses recurrent self-conditioning. CFG=1 requires no unconditional model calls.
 
-Selected weights and ODE states are FP32; denoiser Transformer forwards use BF16. Time embeddings are averaged in FP64. Vocabulary projection and greedy decoding use FP32, with PyTorch matmul precision set to `high`. Math/GSM prompt encoders use FP32 with dynamic padding; coding prompt encoding uses BF16 and padding to a multiple of 32. These settings are recorded in each package configuration.
+Selected weights and sampler states are FP32; denoiser Transformer forwards use BF16. Time embeddings are averaged in FP64. Vocabulary projection and greedy decoding use FP32, with PyTorch matmul precision set to `high`. Math/GSM prompt encoders use FP32 with dynamic padding; coding prompt encoding uses BF16 and padding to a multiple of 32. These settings are recorded in each package configuration.
 
 Generation atomically saves completed predictions, CPU generator state, and timing after each batch. Repeating the same command resumes. Changing model identity, data, selectors, seed, batch size, clocks, guidance, or numerical settings rejects reuse. Reports retain hashes, complete coverage, per-batch timing, and network-call counts. Scoring similarly checks its input contract.
 
@@ -72,3 +72,7 @@ Existing CEDR checkpoint files remain supported using `--config`, `--embedding`,
 GSM8K uses the canonical numerical extractor. MATH500 uses Math-Verify 0.9.0 with boxed-first extraction, strict equivalence, 6-digit rounding, and a 5-second timeout. Coding uses the pinned official EvalPlus base/plus tests. OCI training rewards use a separate reference-validated native-test population.
 
 A single seeded evaluation measures pass@1. Use matched problem IDs and multiple independent seeds for pass@k or paired bootstrap intervals. Do not pool different protocols. Release-validation scores are reported separately from the paper's eight-seed estimates.
+
+## Sampler selection
+
+Package defaults use DMD2-style re-noising (`--sampler dmd2 --renoise-eta 1`). Choose `--sampler ode` or `--sampler edm --edm-churn 0.7` for the other paper samplers. See [the sampler guide](samplers.md) for clocks, random streams, endpoint rules, and resumability. Keep batch size 32 and benchmark order fixed when reproducing seeded results.

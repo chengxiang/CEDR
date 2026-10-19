@@ -64,14 +64,16 @@ training:
   save_every: 500
   first_epoch_order: physical
   later_epoch_order: global
-  prompt_mse_ratio: 2.0
+  prompt_mse_ratio: 0.0
   mse_balance_decay: 0.99
+  joint_prompt_lr: 0.0005
+  epoch_tail: update
 stages:
   flow_epochs: 12
-  prompt_epochs: 10
-  joint_epochs: 1
-  joint_prompt_selector: '.999'
-  nft_updates: 100
+  prompt_epochs: 20
+  joint_epochs: 2
+  joint_prompt_selector: '.9999'
+  nft_updates: 300
 data:
   max_tokens: 1024
   max_prompt_tokens: null
@@ -94,6 +96,9 @@ inference:
   noise_generator: cpu
   elf_selector: '.9999'
   prompt_selector: '.9999'
+  sampler: dmd2
+  renoise_eta: 1.0
+  edm_churn: 0.7
 nft:
   lr: 0.0001
   prompt_groups: 24
@@ -118,8 +123,9 @@ nft:
   - 0.99
   - 0.999
   - 0.9999
-  elf_eval_selector: '.9'
-  prompt_eval_selector: '.9'
+  elf_eval_selector: '.99'
+  prompt_eval_selector: '.99'
   gold_reward: 1.0
   correct_reward: 0.75
   incorrect_reward: 0.0
+  prompt_lr: 2.5e-05

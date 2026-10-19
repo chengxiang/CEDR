@@ -1,4 +1,4 @@
-"""Euler ODE sampling with feature-clock derivatives and native terminal decoding."""
+"""ODE and stochastic sampling with matched clocks and terminal decoding."""
 
 from __future__ import annotations
 from pathlib import Path
@@ -48,7 +48,7 @@ def local_velocity(pred, z, local_times, dimensions, eps):
 
 
 @torch.no_grad()
-def sample(
+def sample_ode(
     model,
     condition,
     mask,
@@ -123,6 +123,20 @@ def sample(
             z = restore(z + (tn - t) * v, condition, mask)
             sc = pred
     return z, dict(denoiser_calls=calls, steps=steps, terminal_latent="euler_z")
+
+
+def sample(model, condition, mask, cfg, *, generator, steps=None, powers=None,
+           sccfg=None, cfg_scale=1.0, bf16=False, initial_noise=None, sampler=None,
+           renoise_eta=None, edm_churn=None, batch_offset=0):
+    method = sampler or cfg["inference"].get("sampler", "ode")
+    kwargs = dict(generator=generator, steps=steps, powers=powers, sccfg=sccfg,
+                  cfg_scale=cfg_scale, bf16=bf16, initial_noise=initial_noise)
+    if method == "ode":
+        return sample_ode(model, condition, mask, cfg, **kwargs)
+    from .samplers import sample_stochastic
+    return sample_stochastic(model, condition, mask, cfg, sampler=method,
+                             renoise_eta=renoise_eta, edm_churn=edm_churn,
+                             batch_offset=batch_offset, **kwargs)
 
 
 @torch.no_grad()
@@ -244,7 +258,13 @@ def run(args, cfg):
         from .train import feature_provider
 
         provider = feature_provider(args, cfg, dataset, device)
+    method = getattr(args, "sampler", None) or cfg["inference"].get("sampler", "ode")
+    eta = getattr(args, "renoise_eta", None)
+    churn = getattr(args, "edm_churn", None)
     settings = dict(
+        sampler=method,
+        renoise_eta=cfg["inference"].get("renoise_eta", 1.0) if eta is None else eta,
+        edm_churn=cfg["inference"].get("edm_churn", 0.7) if churn is None else churn,
         recipe_sha256=digest(cfg),
         feature_provider=None if provider is None else provider.identity,
         checkpoint_sha256=sha256(
@@ -265,7 +285,7 @@ def run(args, cfg):
         noise_generator="cpu",
         decoder="argmax",
         max_response_tokens=cfg["inference"].get("max_response_tokens"),
-        terminal_latent="euler_z",
+        terminal_latent="euler_z" if method == "ode" else "clean_prediction",
     )
     out = Path(args.output)
     out.mkdir(parents=True, exist_ok=True)
@@ -275,7 +295,12 @@ def run(args, cfg):
     progress = out / "progress.pt"
     if progress.exists():
         previous = load_tensor_file(progress)
-        if previous["settings"] != settings:
+        previous_settings = dict(previous["settings"])
+        # A package without a sampler field uses the ODE convention.
+        previous_settings.setdefault("sampler", "ode")
+        previous_settings.setdefault("renoise_eta", 1.0)
+        previous_settings.setdefault("edm_churn", 0.7)
+        if previous_settings != settings:
             raise ValueError("generation continuation settings changed")
         predictions = previous["predictions"]
         timings = previous["timings"]
@@ -314,6 +339,10 @@ def run(args, cfg):
             batch["prompt"],
             cfg,
             generator=gen,
+            sampler=settings["sampler"],
+            renoise_eta=settings["renoise_eta"],
+            edm_churn=settings["edm_churn"],
+            batch_offset=lo,
             steps=settings["steps"],
             powers=settings["powers"],
             sccfg=settings["sccfg"],

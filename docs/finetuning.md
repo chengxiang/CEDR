@@ -1,6 +1,6 @@
 # Joint fine-tuning from released weights
 
-All six [released models](models.md) can initialize joint training of ELF and the prompt encoder. The selected pair becomes the new raw weights, with fresh optimizers, scheduler counters, data cursor, and independent EMA .99/.999/.9999 states. The frozen token embedding and teacher projectors remain fixed.
+All eight [released models](models.md) can initialize joint training of ELF and the prompt encoder. The selected pair becomes the new raw weights, with fresh optimizers, scheduler counters, data cursor, and independent EMA .99/.999/.9999 states. The frozen token embedding and teacher projectors remain fixed.
 
 ## Download and prepare data
 
@@ -32,7 +32,7 @@ torchrun --standalone --nproc-per-node=2 -m cedr train joint \
   --qwen-chunk 8 --micro-batch 32 --output "$artifacts/joint-finetune"
 ```
 
-The package supplies the architecture, including the actual time embedders, prompt encoder, and frozen embedding. The recipe supplies optimization, additional joint-training epochs (`stages.joint_epochs`), and loss settings. Copy/edit the recipe to choose your fine-tuning duration or learning rate. Defaults retain effective batch 512, synchronous clocks, mixed flow/decoder CE, and gradient clipping at 1. OCI enables the configurable 2:1 gradient-balanced prompt-MSE term; math disables it.
+The package supplies the architecture, including the actual time embedders, prompt encoder, and frozen embedding. The recipe supplies optimization, additional joint-training epochs (`stages.joint_epochs`), and loss settings. Copy/edit the recipe to choose your fine-tuning duration or learning rate. Defaults retain effective batch 512, synchronous clocks, mixed flow/decoder CE, and gradient clipping at 1. All default recipes disable auxiliary prompt MSE (`training.prompt_mse_ratio: 0`). OCI uses `training.joint_prompt_lr: 0.0005` for the prompt encoder and `training.lr: 0.002` for the backbone. Other recipes use 0.002 for both. Set a positive `prompt_mse_ratio` only when intentionally enabling the optional gradient-balanced term.
 
 The package already contains one selected model/prompt pair. Do not pass EMA selectors or `--prompt-init` when using `--init-weights`. Initialization begins a new training run at update zero. `--max-updates N` can bound a first check without changing the configured horizon. Epoch endpoints must meet the existing complete-accumulation requirement.
 
@@ -51,7 +51,7 @@ torchrun --standalone --nproc-per-node=2 -m cedr train joint \
   --micro-batch 32 --output "$artifacts/joint-finetune"
 ```
 
-Cache construction uses frozen causal Qwen, FP32 projection, and BF16 targets. Cached training requires no live Qwen Transformer. Cache metadata binds both the prepared dataset and representation hash. OCI's auxiliary prompt targets come from the same features.
+Cache construction uses frozen causal Qwen, FP32 projection, and BF16 targets. Cached training requires no live Qwen Transformer. Cache metadata binds both the prepared dataset and representation hash. If optional prompt-MSE regularization is enabled, its prompt targets come from the same features.
 
 ## Resume your fine-tuning run
 

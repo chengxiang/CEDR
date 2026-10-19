@@ -16,6 +16,7 @@ def threads():
 @pytest.fixture
 def cfg():
     c = yaml.safe_load((Path(__file__).parents[1] / "configs/gsm8k_b.yaml").read_text())
+    c["inference"]["sampler"] = "ode"
     c["model"].update(
         text_encoder_dim=12,
         max_length=16,

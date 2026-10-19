@@ -37,7 +37,8 @@ def encode_prompt(prompt, batch, deterministic=False, *, pad_to_multiple=1, pad_
     return F.pad(result, (0, 0, 0, batch["ids"].shape[1] - span)).float()
 
 
-def make_optimizers(elf, prompt, lr):
+def make_optimizers(elf, prompt, lr, prompt_lr=None):
+    prompt_lr = lr if prompt_lr is None else prompt_lr
     optimizers = {}
     if elf is not None:
         optimizers["elf"] = [muon_with_aux_adam(elf, lr)]
@@ -49,9 +50,9 @@ def make_optimizers(elf, prompt, lr):
         ]
         aux = [p for p in prompt.parameters() if p.requires_grad and p.ndim != 2]
         optimizers["prompt"] = [
-            muon_with_aux_adam(prompt, lr, named_parameters=matrix),
+            muon_with_aux_adam(prompt, prompt_lr, named_parameters=matrix),
             torch.optim.AdamW(
-                aux, lr=lr, betas=(0.9, 0.999), eps=1e-8, weight_decay=0.0
+                aux, lr=prompt_lr, betas=(0.9, 0.999), eps=1e-8, weight_decay=0.0
             ),
         ]
     return optimizers

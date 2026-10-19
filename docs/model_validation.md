@@ -1,24 +1,26 @@
 # Inference-package validation
 
-Validation uses seed 42, batch size 32, async `(2.5, 2, 1.5)`, and each package's default steps and SCCFG. These single-seed checks are separate from the paper's eight-seed estimates.
+Seed-42 validation uses DMD2-style re-noising with eta 1, batch size 32, async `(2.5, 2, 1.5)`, and each package's default steps and SCCFG. These single-seed checks are separate from the paper's multi-seed estimates.
 
-All 4,722 generated predictions and per-problem correctness decisions match the benchmark reference evaluations. Checks also cover exact selected-tensor export, strict loading, prompt features, denoiser outputs, sampled endpoints, vocabulary decoding, long prompts, partial batches, and interrupted/resumed generation.
+All 7,360 generated predictions and per-problem correctness decisions match the corresponding reference evaluations. Export checks verify exact selected tensors, matched representations, and strict architecture loading. Fixed-input GPU checks reproduce prompt features, denoiser outputs, sampled endpoints, and decoded tokens exactly for all eight models under ODE, EDM-style SDE, and DMD2-style sampling, including long prompts and partial batches. Full generation also verifies interrupted/resumed output equality.
 
 | Model | Benchmark | Correct / total | Pass@1 | Plus correct / total | Plus pass@1 |
 |---|---|---:|---:|---:|---:|
-| gsm8k-b-pre-nft | gsm8k | 523/1319 | 39.65% | — | — |
-| gsm8k-b-post-nft | gsm8k | 554/1319 | 42.00% | — | — |
-| math-l-pre-nft | math500 | 103/500 | 20.60% | — | — |
-| math-l-post-nft | math500 | 128/500 | 25.60% | — | — |
-| oci-l-pre-nft | humaneval | 49/164 | 29.88% | 46/164 | 28.05% |
-| oci-l-pre-nft | mbpp | 70/378 | 18.52% | 61/378 | 16.14% |
-| oci-l-post-nft | humaneval | 54/164 | 32.93% | 53/164 | 32.32% |
-| oci-l-post-nft | mbpp | 92/378 | 24.34% | 80/378 | 21.16% |
+| gsm8k-b-pre-nft | gsm8k | 637/1319 | 48.29% | — | — |
+| gsm8k-b-post-nft | gsm8k | 626/1319 | 47.46% | — | — |
+| gsm8k-l-pre-nft | gsm8k | 879/1319 | 66.64% | — | — |
+| gsm8k-l-post-nft | gsm8k | 898/1319 | 68.08% | — | — |
+| math-l-pre-nft | math500 | 145/500 | 29.00% | — | — |
+| math-l-post-nft | math500 | 158/500 | 31.60% | — | — |
+| oci-l-pre-nft | humaneval | 57/164 | 34.76% | 54/164 | 32.93% |
+| oci-l-pre-nft | mbpp | 123/378 | 32.54% | 101/378 | 26.72% |
+| oci-l-post-nft | humaneval | 70/164 | 42.68% | 66/164 | 40.24% |
+| oci-l-post-nft | mbpp | 110/378 | 29.10% | 88/378 | 23.28% |
 
-The installed public CLI was also checked from outside the source checkout, using only an inference package and prepared benchmark prompts. The coding sanitizer and base/plus decisions match the pinned official EvalPlus scorer without function-name repair. The CPU suite passes 33 tests, including package integrity, selective revision-pinned downloading, benchmark-cohort integrity, resumption, and optional function-name repair.
+Coding uses pinned official EvalPlus base/plus scoring without function-name repair. Optional alias scoring remains separately selectable. GSM8K uses canonical numerical scoring; MATH500 uses Math-Verify 0.9.0.
 
-Standard and optional alias extraction each reproduce the corresponding saved programs for all 8,672 coding completions across the two models and eight seeds. The alias rule changes 2,432 programs; standard extraction remains the default. These extraction checks are separate from the single-seed accuracy table above.
+A clean noneditable installation passes 53 CPU tests covering package versions, selective downloading, file integrity, all three samplers, exact resumption, benchmark coverage, optimization, and epoch-tail rules. The eight-package release catalog is exercised through the installed downloader with local file transport; every selected file passes size and SHA-256 checks. Public downloads perform the same verification against an immutable Hub revision.
 
-All six packages were downloaded from [the model repository](https://huggingface.co/xc91/CEDR) and passed file-size and SHA-256 verification. The installed download command was also checked with implicit authentication disabled.
+Two-H200 fine-tuning checks cover both selected states of GSM8K-L and OCI-L with effective batch 512 (2 × 32 × accumulation 8), three updates per state, both objective branches, gradients into both models, frozen embeddings/projectors, independent EMAs, fresh optimizers, task-specific learning rates, and save/reload continuation. These are short correctness checks, not convergence experiments. Fixed-panel cached/live features and losses match exactly at matched extraction chunk sizes; alternate chunks are checked with numerical tolerance.
 
-Numerical validation used H200 GPUs, PyTorch 2.11.0 with CUDA 12.8, and Transformers 4.57.6. Different hardware or numerical settings may change seeded outputs.
+Numerical validation uses H200 GPUs, PyTorch 2.11.0/CUDA 12.8, and Transformers 4.57.6. Different hardware, batch geometry, or numerical settings can change seeded outputs.

@@ -107,7 +107,7 @@ def run(args, cfg):
         ref_elf=ref_elf,
         ref_prompt=ref_prompt,
     )
-    optimizers = make_optimizers(elf, prompt, n["lr"])
+    optimizers = make_optimizers(elf, prompt, n["lr"], prompt_lr=n.get("prompt_lr", n["lr"]))
     emas = {k: EMA(m, n["ema_decays"]) for k, m in dict(elf=elf, prompt=prompt).items()}
     groups = n["prompt_groups"]
     if groups % world:
@@ -242,6 +242,7 @@ def run(args, cfg):
                     batch["prompt"],
                     cfg,
                     generator=gen,
+                    sampler="ode",
                     steps=n["rollout_steps"],
                     powers=n["rollout_clock_powers"],
                     sccfg=n["rollout_sccfg"],

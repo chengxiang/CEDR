@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cedr"
-version = "0.1.0"
-description = "Continuous Embedding Diffusion for Reasoning"
+version = "0.2.0"
+description = "Continuous Embedding Diffusion Reasoner"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {file = "LICENSE"}

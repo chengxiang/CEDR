@@ -198,7 +198,8 @@ def collate(rows, length, pad_id, device="cpu"):
 class Cursor:
     """Global microbatch cursor. Accumulation may cross an epoch boundary.
 
-    Flow/joint training drops the final incomplete global microbatch.
+    Flow/joint drops the final incomplete global microbatch by default.
+    An explicit drop_multiple can require complete optimization batches.
     Prompt imitation retains its partial tail.
     """
 
@@ -213,6 +214,7 @@ class Cursor:
         first="physical",
         later="global",
         retain_tail=False,
+        drop_multiple=None,
     ):
         self.size = size
         self.micro = micro_batch
@@ -225,13 +227,16 @@ class Cursor:
         self.epoch = 0
         self.offset = 0
         self._order = None
+        self.drop_multiple = drop_multiple or micro_batch * world
+        if self.drop_multiple % (micro_batch * world):
+            raise ValueError("tail boundary must contain complete global microbatches")
         self.usable = (
             size
             if retain_tail
-            else size // (micro_batch * world) * (micro_batch * world)
+            else size // self.drop_multiple * self.drop_multiple
         )
         if self.usable < 1:
-            raise ValueError("dataset is smaller than one global microbatch")
+            raise ValueError("dataset is smaller than the selected epoch-tail boundary")
 
     def order(self):
         if self._order is None:
@@ -269,12 +274,15 @@ class Cursor:
                 "first",
                 "later",
                 "retain_tail",
+                "drop_multiple",
                 "epoch",
                 "offset",
             )
         }
 
     def load_state_dict(self, state):
+        if state.get("drop_multiple", state["micro"] * state["world"]) != self.drop_multiple:
+            raise ValueError("sampler contract changed: drop_multiple")
         for k in ("size", "micro", "world", "seed", "first", "later", "retain_tail"):
             if state[k] != getattr(self, k):
                 raise ValueError(f"sampler contract changed: {k}")

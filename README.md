@@ -1,4 +1,4 @@
-# CEDR: Continuous Embedding Diffusion for Reasoning
+# CEDR: Continuous Embedding Diffusion Reasoner
 
 Continuous latent diffusion for reasoning with frozen Qwen representations and a learned prompt encoder.
 
@@ -6,7 +6,7 @@ Paper: [Reasoning with Continuous Latent Diffusion](https://arxiv.org/pdf/2609.3
 
 The training pipeline consists of covariance-aware teacher-CE projector learning, flow/decoder training, prompt imitation with frozen Qwen embeddings, joint training, and NFT.
 
-The implementation includes cached and live-Qwen features, independently selectable ELF/prompt EMAs, synchronous training clocks, asynchronous inference, and task-specific correctness rewards. OCI joint training enables the 2:1 gradient-balanced prompt-MSE term; math joint training and all NFT training disable it.
+The implementation includes cached and live-Qwen features, independently selectable ELF/prompt EMAs, synchronous training clocks, asynchronous inference, and task-specific correctness rewards. Joint training uses the downstream flow/decoder objective without auxiliary prompt MSE. OCI uses a lower prompt-encoder learning rate; optional gradient-balanced prompt MSE remains configurable. Inference supports ODE, EDM-style SDE, and DMD2-style re-noising.
 
 ## Install
 
@@ -27,7 +27,7 @@ Code execution rewards require Linux **bubblewrap** (`bwrap`) with user namespac
 
 ## Released models
 
-[Six inference packages](https://huggingface.co/xc91/CEDR) cover GSM8K-B, MATH-L, and OCI-L, before and after NFT. Downloaded packages contain the matched denoiser, vocabulary decoder, prompt encoder, frozen embedding table, tokenizer, and matched `representation.pt` projectors.
+[Eight inference packages](https://huggingface.co/xc91/CEDR) cover GSM8K-B/L, MATH-L, and OCI-L, before and after NFT. Downloaded packages contain the matched denoiser, vocabulary decoder, prompt encoder, frozen embedding table, tokenizer, and matched `representation.pt` projectors.
 
 ```bash
 cedr download --model gsm8k-b-pre-nft --output artifacts/gsm8k-b-pre
@@ -53,11 +53,11 @@ Joint fine-tuning loads the selected ELF/prompt pair with `--init-weights`, init
 | Configuration | Backbone | Flow epochs | Prompt MSE epochs | Joint epochs | NFT updates |
 |---|---|---:|---:|---:|---:|
 | `configs/gsm8k_b.yaml` | B | 12 | 60 | 6 (to 18) | 300 |
-| `configs/gsm8k_l.yaml` | L | 12 | 30 | 9 (to 21) | 500 |
+| `configs/gsm8k_l.yaml` | L | 12 | 30 | 9 (to 21) | 600 |
 | `configs/math_l.yaml` | L | 12 | 10 | 9 (to 21) | 600 |
-| `configs/oci_l.yaml` | L | 12 | 10 | 1 (to 13) | 100 |
+| `configs/oci_l.yaml` | L | 12 | 20 | 2 (to 14) | 300 |
 
-Training durations, EMA selectors, and inference settings are configurable.
+Training durations, EMA selectors, and inference settings are configurable. The OCI recipe runs up to 300 NFT updates; its released evaluation pair selects update 100. Package defaults use DMD2-style re-noising with eta 1. See [samplers](docs/samplers.md) for selectable ODE and EDM-style alternatives.
 
 ## Run the pipeline
 

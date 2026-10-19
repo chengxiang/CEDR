@@ -10,7 +10,7 @@ from .common import atomic_json, sha256
 REPOSITORY = "xc91/CEDR"
 MODELS = tuple(
     f"{family}-{stage}-nft"
-    for family in ("gsm8k-b", "math-l", "oci-l")
+    for family in ("gsm8k-b", "gsm8k-l", "math-l", "oci-l")
     for stage in ("pre", "post")
 )
 
@@ -40,7 +40,7 @@ def verify_files(root, files):
 def read_package(directory, verify=True):
     root = Path(directory)
     manifest = json.loads((root / "manifest.json").read_text())
-    if manifest.get("format") != "cedr-inference-v1":
+    if manifest.get("format") not in ("cedr-inference-v1", "cedr-inference-v2"):
         raise ValueError("unsupported inference package format")
     required = {
         manifest["config"],
@@ -56,6 +56,8 @@ def read_package(directory, verify=True):
     if verify:
         verify_files(root, manifest["files"])
     config = json.loads(safe_path(root, manifest["config"]).read_text())
+    if manifest["format"] == "cedr-inference-v2" and config.get("inference", {}).get("sampler") not in ("ode", "edm", "dmd2"):
+        raise ValueError("sampler-aware packages require an explicit supported sampler")
     return manifest, config
 
 

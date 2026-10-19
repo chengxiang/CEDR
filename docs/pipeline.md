@@ -119,7 +119,7 @@ torchrun --standalone --nproc-per-node=2 -m cedr train joint \
   --micro-batch 32 --output "$artifacts/joint"
 ```
 
-Effective supervised batch is 512. Flow/joint accumulation is computed from GPU count and local microbatch. Prompt imitation defaults to 512/world prompts per GPU and accumulation 1; its final partial batch is normalized by the number of real prompts across ranks. Flow/joint drops only incomplete global microbatches; accumulation may cross epoch boundaries. Changing topology can change the dropped tail. Record the GPU count and microbatch size when comparing runs.
+Effective supervised batch is 512. Flow/joint accumulation is computed from GPU count and local microbatch. Prompt imitation defaults to 512/world prompts per GPU and accumulation 1; its final partial batch is normalized by the number of real prompts across ranks. Flow/joint normally drops incomplete global microbatches; accumulation may cross epoch boundaries. OCI sets `training.epoch_tail: update` to drop an incomplete effective batch, preserving 4,893,696 consumed rows and an 88-row tail on its prepared training population across two, four, or eight GPUs. Changing topology can change the dropped tail. Record the GPU count and microbatch size when comparing runs.
 
 The supervised flow/decoder loss is the per-microbatch answer-token mean, averaged across accumulation and ranks. Decoder mode is drawn independently per row with probability .2; self-conditioning targets are detached. Clean prompt restoration and the dedicated decoder-mode tokens remain active. Do not replace this with independently averaged flow and CE losses.
 
@@ -162,3 +162,9 @@ cedr export --input "$artifacts/joint/final.pt" --output "$artifacts/joint-weigh
 ```
 
 This retains raw weights and all independently keyed EMAs while removing optimizers. To export one selected pair, pass both `--elf-selector` and `--prompt-selector`, then use `raw/raw` when loading the resulting selected-weight export. The examples use weights produced by your own training runs. Released model pairs and matched representations are available on [Hugging Face](https://huggingface.co/xc91/CEDR).
+
+## Task-specific optimization
+
+The GSM8K-L recipe uses the same representation dimensions and selected projectors as GSM8K-B. Its `training.epoch_boundary: ceil_update` rounds cumulative epoch milestones to completed optimizer updates; it does not round each pass separately or reset the sampler at a rounded milestone. With two GPUs, 32 rows per GPU, and accumulation 8, epochs 12 and 21 end at updates 57,054 and 99,845. The joint stage adds 42,791 updates.
+
+OCI trains its frozen-embedding prompt encoder for 20 epochs, then jointly trains through backbone epoch 14 without auxiliary MSE. Joint learning rates are 0.002 for the backbone and 0.0005 for the prompt encoder. NFT uses 0.0001 and 0.000025, respectively. NFT rollout sampling remains synchronous ODE at 32 steps and SCCFG 2, independently of the package inference default.
